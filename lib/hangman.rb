@@ -2,10 +2,11 @@
 require 'csv'
 
 class Game
-  attr_accessor :word, :guess, :lives, :bad_move_ary, :good_move_ary
+  attr_reader :word
+  attr_accessor :guess, :lives, :bad_move_ary, :good_move_ary
 
   def initialize #final
-    @word = random_word.chomp.split("") #to remove \n elem from array
+    @word = random_word.chomp.split("") #chomp to remove \n elem from array
     @guess = Array.new(word.length){Letter.new}
   end
 
@@ -18,7 +19,6 @@ class Game
   end
 
   def print_status #final
-    #puts @word
     puts @guess.map {|letter| letter.value.empty? ? "_" : letter.value}.join(" ")
   end
 
@@ -50,20 +50,34 @@ class Game
     true if @guess.map {|letter| letter.value}.join("") == word.join("")
   end
 
-  def save_progress #needs to be remade alongside load in JSON/YAML
-    #require name of save
+  def save_progress
+
     puts "Enter a name for your save file:"
     name = gets.chomp
-    #open THE save file
+
+    #add a functionality that checks whether a savefile with that name already exists
+
     time = Time.now
+
     CSV.open("/home/bategjorgija/the_odin_project/hangman/saves.csv", 'a') do |save_file|
+
+      #adapting for CSV (arrays cant be saved properly)
+      @guess = @guess.map {|letter| letter.value.empty? ? "_" : letter.value}.join("")
+      @word = @word.join("")
+      @bad_move_ary = @bad_move_ary.join("")
+      @good_move_ary = @good_move_ary.join("")
+
+      #saving to the CSV
       save_file << [time, name, @word, @guess, lives, bad_move_ary, good_move_ary]
     end
+
+    #format for saving
     #date, savename, word, guess, lives, badletters, goodletters
     puts "Save successful!"
   end
 
-  def load_progress #need to be remade alongside save in JSON/YAML
+  def load_progress
+
     puts "You've chosen to load a save file!"
     puts "Printing available save files..."
     save_file = CSV.read "/home/bategjorgija/the_odin_project/hangman/saves.csv", headers: true, header_converters: :symbol
@@ -79,16 +93,20 @@ class Game
       if row[:savename] == name
         puts "Loading save with name: #{row[:savename]}, made on date: #{row[:date]}"
         #puts row[:guess]
-        @word = row[:word]
-        @guess = row[:guess]
+        @word = row[:word].split("")
         @lives = row[:lives]
-        @bad_move_ary = row[:badletters]
-        @good_move_ary = row[:goodletters]
+        @bad_move_ary = row[:badletters].split("")
+        @good_move_ary = row[:goodletters].split("")
+
+        #special procedure
+        #to make it somewhat faster row[:guess] should be split only once before these two
+
+        @guess = Array.new(row[:guess].length){Letter.new}
+        @guess.each_with_index.map do |letter, index|
+          letter.value = row[:guess].split("")[index]
+        end
       end
     end
-
-    #update all needed values
-    #play until end
   end
 
   def delete_saves
@@ -96,7 +114,7 @@ class Game
   end
 
   def play
-    @lives = 6 #posssibly make it relative to the word.length
+    @lives = 6 #can be made relative to word.length
     @good_move_ary = []
     @bad_move_ary = []
 
@@ -106,10 +124,16 @@ class Game
     puts "You have 6 lives, use them wisely!"
     puts "If you want to load a previous save, insert LOAD, else just press enter"
     load_decision = gets.chomp
-    load_progress if load_decision == "LOAD"
+    if load_decision == "LOAD"
+      load_progress
+      #repeted from below
+      puts "Lives remaining: #{@lives}"
+      puts "Wrong letters #{@bad_move_ary}"
+      puts "Correct letters #{@good_move_ary}"
+    end
     while true
       print_status
-      puts "Insert your next letter"
+      puts "Insert your next letter or SAVE to save your current progress"
       begin
         move = get_move
         if move == "SAVE"
